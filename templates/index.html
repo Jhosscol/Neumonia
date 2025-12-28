@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XRay AI | Detector de Neumonía</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(79, 172, 254, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 242, 254, 0.1) 0px, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .drop-zone {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: rgba(0, 242, 254, 0.05);
+        }
+
+        .drop-zone input {
+            display: none;
+        }
+
+        .drop-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        #preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .btn-predict {
+            width: 100%;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: none;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(79, 172, 254, 0.4);
+        }
+
+        .results-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .result-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: var(--primary);
+        }
+
+        .decision-badge {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 16px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: none;
+        }
+
+        .badge-neumonia {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .badge-normal {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #error-msg {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>XRay AI Vision</h1>
+            <p class="subtitle">Diagnóstico Asistido por Inteligencia Artificial</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Upload Side -->
+            <div class="card">
+                <form id="prediction-form" enctype="multipart/form-data">
+                    <div class="drop-zone" id="drop-zone">
+                        <div id="drop-zone-content">
+                            <div class="drop-zone-icon">📁</div>
+                            <p>Arrastra tu radiografía aquí</p>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">o haz clic para seleccionar</p>
+                        </div>
+                        <img id="preview-img" alt="Vista previa">
+                        <input type="file" name="image" id="file-input" accept="image/*">
+                    </div>
+                    <button type="submit" class="btn-predict" id="btn-predict">Realizar Análisis</button>
+                    <div id="error-msg"></div>
+                </form>
+            </div>
+
+            <!-- Results Side -->
+            <div class="card results-section">
+                <div id="result-placeholder" style="text-align: center; color: var(--text-muted);">
+                    <p>Sube una imagen para ver los resultados del análisis</p>
+                </div>
+
+                <div id="loading-container" style="display: none; text-align: center;">
+                    <div class="loader" style="display: block; margin-bottom: 1rem;"></div>
+                    <p>Analizando patrones radiológicos...</p>
+                </div>
+
+                <div id="analysis-results" style="display: none;">
+                    <div class="result-item">
+                        <div class="result-label">
+                            <span>Probabilidad de Neumonía</span>
+                            <span id="prob-neumonia-val">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="prob-neumonia-bar" style="background: var(--danger);"></div>
+                        </div>
+                    </div>
+
+                    <div class="result-item">
+                        <div class="result-label">
+                            <span>Normalidad</span>
+                            <span id="prob-normal-val">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="prob-normal-bar" style="background: var(--accent);"></div>
+                        </div>
+                    </div>
+
+                    <div id="decision-badge" class="decision-badge"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewImg = document.getElementById('preview-img');
+        const dropZoneContent = document.getElementById('drop-zone-content');
+        const btnPredict = document.getElementById('btn-predict');
+        const predictionForm = document.getElementById('prediction-form');
+        const resultPlaceholder = document.getElementById('result-placeholder');
+        const loadingContainer = document.getElementById('loading-container');
+        const analysisResults = document.getElementById('analysis-results');
+        const decisionBadge = document.getElementById('decision-badge');
+        const errorMsg = document.getElementById('error-msg');
+
+        // Drag and Drop
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        ['dragleave', 'dragend'].forEach(type => {
+            dropZone.addEventListener(type, () => {
+                dropZone.classList.remove('drag-over');
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileChange();
+            }
+        });
+
+        fileInput.addEventListener('change', handleFileChange);
+
+        function handleFileChange() {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'block';
+                    dropZoneContent.style.display = 'none';
+                    btnPredict.style.display = 'block';
+                    errorMsg.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Form Submission
+        predictionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+
+            // UI State
+            btnPredict.disabled = true;
+            btnPredict.textContent = 'Procesando...';
+            resultPlaceholder.style.display = 'none';
+            analysisResults.style.display = 'none';
+            loadingContainer.style.display = 'block';
+            errorMsg.style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Error en el servidor');
+
+                const data = await response.json();
+                
+                // Display Results
+                setTimeout(() => {
+                    loadingContainer.style.display = 'none';
+                    analysisResults.style.display = 'block';
+                    
+                    const pNeumonia = (data["P(Neumonía)"] * 100).toFixed(1);
+                    const pNormal = (data["P(Normal)"] * 100).toFixed(1);
+
+                    document.getElementById('prob-neumonia-val').textContent = pNeumonia + '%';
+                    document.getElementById('prob-neumonia-bar').style.width = pNeumonia + '%';
+                    
+                    document.getElementById('prob-normal-val').textContent = pNormal + '%';
+                    document.getElementById('prob-normal-bar').style.width = pNormal + '%';
+
+                    decisionBadge.textContent = data["Decisión"];
+                    decisionBadge.className = 'decision-badge ' + 
+                        (data["Decisión"] === 'NEUMONÍA' ? 'badge-neumonia' : 'badge-normal');
+                    decisionBadge.style.display = 'block';
+                    
+                    btnPredict.disabled = false;
+                    btnPredict.textContent = 'Realizar Análisis';
+                }, 800);
+
+            } catch (err) {
+                loadingContainer.style.display = 'none';
+                resultPlaceholder.style.display = 'block';
+                errorMsg.textContent = 'Ocurrió un error al procesar la imagen. Inténtalo de nuevo.';
+                errorMsg.style.display = 'block';
+                btnPredict.disabled = false;
+                btnPredict.textContent = 'Realizar Análisis';
+            }
+        });
+    </script>
+</body>
+</html>
